@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pattern TTS Player</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; padding: 24px; max-width: 600px; margin: auto; }
+    .btn { display: block; width: 100%; margin: 8px 0; padding: 10px 14px; text-align: left; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .btn:hover { background: #e5e7eb; }
+  </style>
+</head>
+<body>
+  <h3>Trading Pattern Voices</h3>
+  <div id="list"></div>
+  <audio id="player" controls style="margin-top: 16px; width: 100%;"></audio>
+
+  <script>
+    const patterns = [
+      "bearish descending triangle",
+      "bearish flag",
+      "bearish pennant",
+      "bearish rising wedge",
+      "bearish symmetrical expanding triangle",
+      "bearish symmetrical triangle",
+      "bullish ascending triangle",
+      "bullish falling wedge",
+      "bullish pennant",
+      "bullish symmetrical expanding triangle",
+      "bullish symmetrical triangle"
+    ];
+
+    const listDiv = document.getElementById('list');
+    const player = document.getElementById('player');
+
+    patterns.forEach(name => {
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.innerText = '🔊 ' + name;
+      btn.onclick = () => {
+        player.src = `/api/tts?text=${encodeURIComponent(name)}`;
+        player.play();
+      };
+      listDiv.appendChild(btn);
+    });
+  </script>
+</body>
+</html>
