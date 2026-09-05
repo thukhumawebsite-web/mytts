@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="my">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Custom Text to Speech</title>
+  <title>Gemini AI Text to Speech</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -25,7 +25,7 @@
     label { display: block; font-weight: 600; font-size: 13px; margin: 14px 0 6px; }
     textarea {
       width: 100%;
-      height: 110px;
+      height: 120px;
       padding: 10px;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
@@ -33,17 +33,12 @@
       font-size: 14px;
       resize: vertical;
     }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
     select {
       width: 100%;
       padding: 8px 10px;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
-      font-size: 13px;
+      font-size: 14px;
       background: #fff;
     }
     .buttons {
@@ -65,77 +60,73 @@
     .btn-download { background: #e2e8f0; color: #0f172a; }
     .btn-download:hover { background: #cbd5e1; }
     audio { width: 100%; margin-top: 20px; }
+    #status { margin-top: 10px; font-size: 13px; color: #64748b; text-align: center; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>🎙 Text to Speech</h2>
+  <h2>✨ Gemini AI Speech</h2>
 
-  <label for="text">စာသား ရိုက်ထည့်ပါ (Text):</label>
-  <textarea id="text" placeholder="ဥပမာ - bullish ascending triangle">bearish descending triangle</textarea>
+  <label for="text">စာသား ရိုက်ထည့်ပါ (မြန်မာ + English ရောရေးနိုင်သည်):</label>
+  <textarea id="text">စိတ်ကြိုက် စာရိုက်နိုင်သော Textarea၊ မတူညီသော အသံလေယူလေသိမ်း (Accent/TLD)၊ အမြန်နှုန်း ရွေးချယ်မှုနှင့် တိုက်ရိုက်နားထောင်/ဒေါင်းလုဒ်လုပ်နိုင်သော UI ပါဝင်ပါသည်။</textarea>
 
-  <div class="grid">
-    <div>
-      <label for="voice">လေယူလေသိမ်း (Accent):</label>
-      <select id="voice">
-        <option value="com" data-lang="en">English (US)</option>
-        <option value="co.uk" data-lang="en">English (UK)</option>
-        <option value="com.au" data-lang="en">English (Australia)</option>
-        <option value="co.in" data-lang="en">English (India)</option>
-        <option value="com" data-lang="my">Myanmar (မြန်မာအသံ)</option>
-      </select>
-    </div>
-    <div>
-      <label for="speed">အမြန်နှုန်း (Speed):</label>
-      <select id="speed">
-        <option value="1">Normal (1x)</option>
-        <option value="0.5">Slow (0.5x)</option>
-      </select>
-    </div>
-  </div>
+  <label for="voice">အသံပုံစံ ရွေးချယ်ပါ (Gemini Voices):</label>
+  <select id="voice">
+    <option value="Puck">Puck (အသံကြည်လင် / အေးဆေး)</option>
+    <option value="Aoede">Aoede (မိန်းကလေးသံ / ညင်သာ)</option>
+    <option value="Kore">Kore (မိန်းကလေးသံ / ပုံမှန်)</option>
+    <option value="Fenrir">Fenrir (ယောက်ျားလေးသံ / သြဇာရှိ)</option>
+    <option value="Charon">Charon (ယောက်ျားလေးသံ / အသံနက်)</option>
+  </select>
 
   <div class="buttons">
-    <button class="btn-play" onclick="playAudio()">🔊 အသံဖွင့်မည်</button>
-    <button class="btn-download" onclick="downloadAudio()">⬇ ဒေါင်းလုဒ်ဆွဲမည်</button>
+    <button class="btn-play" onclick="generateAndPlay()">🔊 အသံဖွင့်မည်</button>
+    <button class="btn-download" onclick="generateAndDownload()">⬇ ဒေါင်းလုဒ်ဆွဲမည်</button>
   </div>
 
+  <div id="status"></div>
   <audio id="player" controls style="display: none;"></audio>
 </div>
 
 <script>
-  function getAudioUrl() {
+  function getUrl() {
     const text = document.getElementById('text').value.trim();
     if (!text) {
       alert('စာသား ရိုက်ထည့်ပေးပါ');
       return null;
     }
-
-    const voiceSelect = document.getElementById('voice');
-    const tld = voiceSelect.value;
-    const lang = voiceSelect.options[voiceSelect.selectedIndex].getAttribute('data-lang');
-    const speed = document.getElementById('speed').value;
-
-    return `/api/tts?text=${encodeURIComponent(text)}&lang=${lang}&tld=${tld}&speed=${speed}`;
+    const voice = document.getElementById('voice').value;
+    return `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`;
   }
 
-  function playAudio() {
-    const url = getAudioUrl();
+  function generateAndPlay() {
+    const url = getUrl();
     if (!url) return;
 
+    const status = document.getElementById('status');
     const player = document.getElementById('player');
+    
+    status.innerText = "Gemini မှ အသံဖန်တီးနေပါသည်...";
     player.style.display = 'block';
     player.src = url;
-    player.play();
+
+    player.onloadeddata = () => {
+      status.innerText = "";
+      player.play();
+    };
+    player.onerror = () => {
+      status.innerText = "အသံထုတ်ယူရာတွင် ချို့ယွင်းချက်ရှိပါသည်။ API Key ကို စစ်ဆေးပါ။";
+    };
   }
 
-  function downloadAudio() {
-    const url = getAudioUrl();
+  function generateAndDownload() {
+    const url = getUrl();
     if (!url) return;
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${document.getElementById('text').value.trim().slice(0, 20)}.mp3`;
+    a.download = `gemini-tts.wav`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
