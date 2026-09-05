@@ -48,7 +48,7 @@
     }
     button {
       flex: 1;
-      padding: 10px 14px;
+      padding: 11px 14px;
       border: none;
       border-radius: 6px;
       font-weight: 600;
@@ -57,10 +57,18 @@
     }
     .btn-play { background: #2563eb; color: #fff; }
     .btn-play:hover { background: #1d4ed8; }
+    .btn-play:disabled { background: #93c5fd; cursor: not-allowed; }
     .btn-download { background: #e2e8f0; color: #0f172a; }
     .btn-download:hover { background: #cbd5e1; }
     audio { width: 100%; margin-top: 20px; }
-    #status { margin-top: 10px; font-size: 13px; color: #64748b; text-align: center; }
+    #status {
+      margin-top: 14px;
+      font-size: 13px;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .error-msg { color: #dc2626; background: #fee2e2; padding: 8px; border-radius: 6px; }
+    .loading-msg { color: #2563eb; }
   </style>
 </head>
 <body>
@@ -81,8 +89,8 @@
   </select>
 
   <div class="buttons">
-    <button class="btn-play" onclick="generateAndPlay()">🔊 အသံဖွင့်မည်</button>
-    <button class="btn-download" onclick="generateAndDownload()">⬇ ဒေါင်းလုဒ်ဆွဲမည်</button>
+    <button id="playBtn" class="btn-play" onclick="fetchAudio(true)">🔊 အသံဖွင့်မည်</button>
+    <button id="downBtn" class="btn-download" onclick="fetchAudio(false)">⬇ ဒေါင်းလုဒ်ဆွဲမည်</button>
   </div>
 
   <div id="status"></div>
@@ -90,46 +98,56 @@
 </div>
 
 <script>
-  function getUrl() {
+  let currentAudioUrl = null;
+
+  async function fetchAudio(autoPlay = true) {
     const text = document.getElementById('text').value.trim();
     if (!text) {
       alert('စာသား ရိုက်ထည့်ပေးပါ');
-      return null;
+      return;
     }
+
     const voice = document.getElementById('voice').value;
-    return `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`;
-  }
-
-  function generateAndPlay() {
-    const url = getUrl();
-    if (!url) return;
-
     const status = document.getElementById('status');
     const player = document.getElementById('player');
-    
-    status.innerText = "Gemini မှ အသံဖန်တီးနေပါသည်...";
-    player.style.display = 'block';
-    player.src = url;
+    const playBtn = document.getElementById('playBtn');
 
-    player.onloadeddata = () => {
+    status.className = 'loading-msg';
+    status.innerText = "⏳ Gemini မှ အသံထုတ်ယူနေပါသည်၊ ခေတ္တစောင့်ပါ...";
+    playBtn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`);
+      
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || `Server Error ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = URL.createObjectURL(blob);
+
       status.innerText = "";
-      player.play();
-    };
-    player.onerror = () => {
-      status.innerText = "အသံထုတ်ယူရာတွင် ချို့ယွင်းချက်ရှိပါသည်။ API Key ကို စစ်ဆေးပါ။";
-    };
-  }
-
-  function generateAndDownload() {
-    const url = getUrl();
-    if (!url) return;
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gemini-tts.wav`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+      
+      if (autoPlay) {
+        player.style.display = 'block';
+        player.src = currentAudioUrl;
+        player.play();
+      } else {
+        const a = document.createElement('a');
+        a.href = currentAudioUrl;
+        a.download = `gemini-${voice}.wav`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (err) {
+      status.className = 'error-msg';
+      status.innerText = "❌ အမှားတွေ့ရှိရပါသည်: " + err.message;
+    } finally {
+      playBtn.disabled = false;
+    }
   }
 </script>
 
