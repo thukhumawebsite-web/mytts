@@ -1,8 +1,5 @@
 {
   "name": "vercel-tts-api",
   "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@google/genai": "latest"
-  }
+  "type": "module"
 }
