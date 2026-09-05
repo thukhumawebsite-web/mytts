@@ -2,46 +2,145 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pattern TTS Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Text to Speech</title>
   <style>
-    body { font-family: -apple-system, sans-serif; padding: 24px; max-width: 600px; margin: auto; }
-    .btn { display: block; width: 100%; margin: 8px 0; padding: 10px 14px; text-align: left; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 14px; }
-    .btn:hover { background: #e5e7eb; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .container {
+      background: #ffffff;
+      max-width: 550px;
+      width: 100%;
+      padding: 28px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    h2 { margin-top: 0; font-size: 22px; text-align: center; }
+    label { display: block; font-weight: 600; font-size: 13px; margin: 14px 0 6px; }
+    textarea {
+      width: 100%;
+      height: 110px;
+      padding: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 14px;
+      resize: vertical;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+    }
+    .buttons {
+      margin-top: 18px;
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      flex: 1;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn-play { background: #2563eb; color: #fff; }
+    .btn-play:hover { background: #1d4ed8; }
+    .btn-download { background: #e2e8f0; color: #0f172a; }
+    .btn-download:hover { background: #cbd5e1; }
+    audio { width: 100%; margin-top: 20px; }
   </style>
 </head>
 <body>
-  <h3>Trading Pattern Voices</h3>
-  <div id="list"></div>
-  <audio id="player" controls style="margin-top: 16px; width: 100%;"></audio>
 
-  <script>
-    const patterns = [
-      "bearish descending triangle",
-      "bearish flag",
-      "bearish pennant",
-      "bearish rising wedge",
-      "bearish symmetrical expanding triangle",
-      "bearish symmetrical triangle",
-      "bullish ascending triangle",
-      "bullish falling wedge",
-      "bullish pennant",
-      "bullish symmetrical expanding triangle",
-      "bullish symmetrical triangle"
-    ];
+<div class="container">
+  <h2>🎙 Text to Speech</h2>
 
-    const listDiv = document.getElementById('list');
+  <label for="text">စာသား ရိုက်ထည့်ပါ (Text):</label>
+  <textarea id="text" placeholder="ဥပမာ - bullish ascending triangle">bearish descending triangle</textarea>
+
+  <div class="grid">
+    <div>
+      <label for="voice">လေယူလေသိမ်း (Accent):</label>
+      <select id="voice">
+        <option value="com" data-lang="en">English (US)</option>
+        <option value="co.uk" data-lang="en">English (UK)</option>
+        <option value="com.au" data-lang="en">English (Australia)</option>
+        <option value="co.in" data-lang="en">English (India)</option>
+        <option value="com" data-lang="my">Myanmar (မြန်မာအသံ)</option>
+      </select>
+    </div>
+    <div>
+      <label for="speed">အမြန်နှုန်း (Speed):</label>
+      <select id="speed">
+        <option value="1">Normal (1x)</option>
+        <option value="0.5">Slow (0.5x)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button class="btn-play" onclick="playAudio()">🔊 အသံဖွင့်မည်</button>
+    <button class="btn-download" onclick="downloadAudio()">⬇ ဒေါင်းလုဒ်ဆွဲမည်</button>
+  </div>
+
+  <audio id="player" controls style="display: none;"></audio>
+</div>
+
+<script>
+  function getAudioUrl() {
+    const text = document.getElementById('text').value.trim();
+    if (!text) {
+      alert('စာသား ရိုက်ထည့်ပေးပါ');
+      return null;
+    }
+
+    const voiceSelect = document.getElementById('voice');
+    const tld = voiceSelect.value;
+    const lang = voiceSelect.options[voiceSelect.selectedIndex].getAttribute('data-lang');
+    const speed = document.getElementById('speed').value;
+
+    return `/api/tts?text=${encodeURIComponent(text)}&lang=${lang}&tld=${tld}&speed=${speed}`;
+  }
+
+  function playAudio() {
+    const url = getAudioUrl();
+    if (!url) return;
+
     const player = document.getElementById('player');
+    player.style.display = 'block';
+    player.src = url;
+    player.play();
+  }
 
-    patterns.forEach(name => {
-      const btn = document.createElement('button');
-      btn.className = 'btn';
-      btn.innerText = '🔊 ' + name;
-      btn.onclick = () => {
-        player.src = `/api/tts?text=${encodeURIComponent(name)}`;
-        player.play();
-      };
-      listDiv.appendChild(btn);
-    });
-  </script>
+  function downloadAudio() {
+    const url = getAudioUrl();
+    if (!url) return;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${document.getElementById('text').value.trim().slice(0, 20)}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+</script>
+
 </body>
 </html>
