@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gemini AI Text to Speech</title>
+  <!-- LameJS for client-side MP3 conversion -->
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -57,9 +59,9 @@
     }
     .btn-play { background: #2563eb; color: #fff; }
     .btn-play:hover { background: #1d4ed8; }
-    .btn-play:disabled { background: #93c5fd; cursor: not-allowed; }
-    .btn-download { background: #e2e8f0; color: #0f172a; }
-    .btn-download:hover { background: #cbd5e1; }
+    .btn-play:disabled, .btn-download:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-download { background: #059669; color: #fff; }
+    .btn-download:hover { background: #047857; }
     audio { width: 100%; margin-top: 20px; }
     #status {
       margin-top: 14px;
@@ -77,20 +79,20 @@
   <h2>✨ Gemini AI Speech</h2>
 
   <label for="text">စာသား ရိုက်ထည့်ပါ (မြန်မာ + English ရောရေးနိုင်သည်):</label>
-  <textarea id="text">စိတ်ကြိုက် စာရိုက်နိုင်သော Textarea၊ မတူညီသော အသံလေယူလေသိမ်း (Accent/TLD)၊ အမြန်နှုန်း ရွေးချယ်မှုနှင့် တိုက်ရိုက်နားထောင်/ဒေါင်းလုဒ်လုပ်နိုင်သော UI ပါဝင်ပါသည်။</textarea>
+  <textarea id="text">bearish_descending_triangle</textarea>
 
   <label for="voice">အသံပုံစံ ရွေးချယ်ပါ (Gemini Voices):</label>
   <select id="voice">
-    <option value="Puck">Puck (အသံကြည်လင် / အေးဆေး)</option>
     <option value="Aoede">Aoede (မိန်းကလေးသံ / ညင်သာ)</option>
+    <option value="Puck">Puck (အသံကြည်လင် / အေးဆေး)</option>
     <option value="Kore">Kore (မိန်းကလေးသံ / ပုံမှန်)</option>
     <option value="Fenrir">Fenrir (ယောက်ျားလေးသံ / သြဇာရှိ)</option>
     <option value="Charon">Charon (ယောက်ျားလေးသံ / အသံနက်)</option>
   </select>
 
   <div class="buttons">
-    <button id="playBtn" class="btn-play" onclick="fetchAudio(true)">🔊 အသံဖွင့်မည်</button>
-    <button id="downBtn" class="btn-download" onclick="fetchAudio(false)">⬇ ဒေါင်းလုဒ်ဆွဲမည်</button>
+    <button id="playBtn" class="btn-play" onclick="handleAction('play')">🔊 အသံဖွင့်မည်</button>
+    <button id="downBtn" class="btn-download" onclick="handleAction('download')">⬇ MP3 ဒေါင်းလုဒ်ဆွဲမည်</button>
   </div>
 
   <div id="status"></div>
@@ -98,9 +100,41 @@
 </div>
 
 <script>
-  let currentAudioUrl = null;
+  let cachedWavBlob = null;
+  let cachedText = '';
+  let cachedVoice = '';
 
-  async function fetchAudio(autoPlay = true) {
+  // WAV ArrayBuffer မှ MP3 Blob သို့ ပြောင်းပေးသည့် function
+  async function wavToMp3(arrayBuffer) {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    const samples = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
+
+    // Convert Float32Array to Int16Array
+    const int16Samples = new Int16Array(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      int16Samples[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+
+    const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128); // 1 channel, 128kbps
+    const sampleBlockSize = 1152;
+    const mp3Data = [];
+
+    for (let i = 0; i < int16Samples.length; i += sampleBlockSize) {
+      const chunk = int16Samples.subarray(i, i + sampleBlockSize);
+      const mp3buf = mp3encoder.encodeBuffer(chunk);
+      if (mp3buf.length > 0) mp3Data.push(mp3buf);
+    }
+
+    const mp3buf = mp3encoder.flush();
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+
+    return new Blob(mp3Data, { type: 'audio/mp3' });
+  }
+
+  async function handleAction(action) {
     const text = document.getElementById('text').value.trim();
     if (!text) {
       alert('စာသား ရိုက်ထည့်ပေးပါ');
@@ -111,42 +145,59 @@
     const status = document.getElementById('status');
     const player = document.getElementById('player');
     const playBtn = document.getElementById('playBtn');
+    const downBtn = document.getElementById('downBtn');
 
-    status.className = 'loading-msg';
-    status.innerText = "⏳ Gemini မှ အသံထုတ်ယူနေပါသည်၊ ခေတ္တစောင့်ပါ...";
     playBtn.disabled = true;
+    downBtn.disabled = true;
+    status.className = 'loading-msg';
 
     try {
-      const res = await fetch(`/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`);
-      
-      if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.error || `Server Error ${res.status}`);
+      // စာသား သို့မဟုတ် Voice မပြောင်းလဲသေးပါက ပြန် generate မလုပ်ဘဲ cache သုံးမည်
+      let arrayBuffer;
+      if (cachedWavBlob && cachedText === text && cachedVoice === voice) {
+        arrayBuffer = await cachedWavBlob.arrayBuffer();
+      } else {
+        status.innerText = "⏳ Gemini မှ အသံထုတ်ယူနေပါသည်...";
+        const res = await fetch(`/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`);
+        
+        if (!res.ok) {
+          const errJson = await res.json();
+          throw new Error(errJson.error || `Server Error ${res.status}`);
+        }
+
+        cachedWavBlob = await res.blob();
+        cachedText = text;
+        cachedVoice = voice;
+        arrayBuffer = await cachedWavBlob.arrayBuffer();
       }
 
-      const blob = await res.blob();
-      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
-      currentAudioUrl = URL.createObjectURL(blob);
-
-      status.innerText = "";
-      
-      if (autoPlay) {
+      if (action === 'play') {
+        const audioUrl = URL.createObjectURL(cachedWavBlob);
         player.style.display = 'block';
-        player.src = currentAudioUrl;
+        player.src = audioUrl;
         player.play();
-      } else {
+        status.innerText = "";
+      } else if (action === 'download') {
+        status.innerText = "⚙️ MP3 သို့ ပြောင်းလဲနေပါသည်...";
+        const mp3Blob = await wavToMp3(arrayBuffer);
+        const mp3Url = URL.createObjectURL(mp3Blob);
+
         const a = document.createElement('a');
-        a.href = currentAudioUrl;
-        a.download = `gemini-${voice}.wav`;
+        a.href = mp3Url;
+        const cleanName = text.replace(/[^a-zA-Z0-9_\u1000-\u109F]/g, '_').slice(0, 30);
+        a.download = `${cleanName || 'voice'}.mp3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        status.innerText = "✅ MP3 ဒေါင်းလုဒ်လုပ်ခြင်း ပြီးပါပြီ။";
       }
+
     } catch (err) {
       status.className = 'error-msg';
       status.innerText = "❌ အမှားတွေ့ရှိရပါသည်: " + err.message;
     } finally {
       playBtn.disabled = false;
+      downBtn.disabled = false;
     }
   }
 </script>
