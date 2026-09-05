@@ -11,13 +11,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    // gemini-3.6-flash သို့ ပြောင်းထားပါသည်
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+    // gemini-2.0-flash သို့ အတည်ပြု သတ်မှတ်ပေးပါသည်
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
     const requestBody = {
       contents: [{
         parts: [{
-          text: `You are a text-to-speech reader. Read the following text aloud with completely natural pronunciation. When encountering English loanwords, acronyms, or mixed English phrases within Burmese text, pronounce both languages clearly and accurately:\n\n${text}`
+          text: `Please read the following text aloud with completely natural pronunciation. When encountering English loanwords, acronyms, or mixed English phrases within Burmese text, pronounce both languages clearly and accurately:\n\n${text}`
         }]
       }],
       generationConfig: {
@@ -54,7 +54,6 @@ export default async function handler(req, res) {
     const pcmBuffer = Buffer.from(part.inlineData.data, 'base64');
     const mimeType = part.inlineData.mimeType || '';
 
-    // PCM အသံ stream ကို browser က တိုက်ရိုက်ဖွင့်နိုင်ရန် WAV Header ထည့်သွင်းခြင်း
     let finalBuffer = pcmBuffer;
     if (mimeType.includes('pcm') || mimeType.includes('L16') || !mimeType.includes('wav')) {
       finalBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
