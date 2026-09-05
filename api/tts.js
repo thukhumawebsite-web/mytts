@@ -11,12 +11,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // gemini-3.6-flash သို့ ပြောင်းထားပါသည်
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
     const requestBody = {
       contents: [{
         parts: [{
-          text: `You are a text-to-speech engine. Read the following text out loud with accurate natural pronunciation. For English words and technical acronyms inside the text, pronounce them accurately in standard English accent. Text: "${text}"`
+          text: `You are a text-to-speech reader. Read the following text aloud with completely natural pronunciation. When encountering English loanwords, acronyms, or mixed English phrases within Burmese text, pronounce both languages clearly and accurately:\n\n${text}`
         }]
       }],
       generationConfig: {
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
     const pcmBuffer = Buffer.from(part.inlineData.data, 'base64');
     const mimeType = part.inlineData.mimeType || '';
 
-    // အကယ်၍ raw pcm ဖြစ်နေပါက browser နားထောင်နိုင်အောင် WAV Header ထည့်ပေးခြင်း (24kHz, 1 channel, 16-bit)
+    // PCM အသံ stream ကို browser က တိုက်ရိုက်ဖွင့်နိုင်ရန် WAV Header ထည့်သွင်းခြင်း
     let finalBuffer = pcmBuffer;
     if (mimeType.includes('pcm') || mimeType.includes('L16') || !mimeType.includes('wav')) {
       finalBuffer = addWavHeader(pcmBuffer, 24000, 1, 16);
@@ -78,7 +79,7 @@ function addWavHeader(samples, sampleRate = 24000, numChannels = 1, bitDepth = 1
   buffer.write('WAVE', 8);
   buffer.write('fmt ', 12);
   buffer.writeUInt32LE(16, 16);
-  buffer.writeUInt16LE(1, 20); // PCM
+  buffer.writeUInt16LE(1, 20);
   buffer.writeUInt16LE(numChannels, 22);
   buffer.writeUInt32LE(sampleRate, 24);
   buffer.writeUInt32LE(byteRate, 28);
